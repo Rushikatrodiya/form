@@ -1,0 +1,168 @@
+"use client";
+import { FC, useEffect, useState } from "react";
+
+import HeaderPage from "@/app/component/HeaderPage";
+import PaginationData from "@/app/component/Pagination";
+import TableData from "@/app/component/TableData";
+import { useAnime } from "@/hook/useAnime";
+import { useDebouncedValue } from "@mantine/hooks";
+
+export type IData = {
+  data: {
+    mal_id: string;
+    title: string;
+    rank: string;
+    type: string;
+    status: string;
+  }[];
+  pagination: {
+    current_page: number;
+    has_next_page: boolean;
+    items: {
+      count: number;
+      total: number;
+      per_page: number;
+    };
+    last_visible_page: number;
+  };
+};
+
+export type IAnimeListProps = {
+  alldata: IData;
+};
+
+const AnimeList: FC = () => {
+  const [type, setType] = useState<string | null>('');
+  const [row, setRow] = useState<string | null>('5');
+  const [title, setTitle] = useState('');
+  const [status, setStatus] = useState<string | null>('');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const [debounced] = useDebouncedValue(title, 1000);
+
+  const {
+    data: allData,
+    isLoading: loading,
+    refetch,
+  } = useAnime(Number(row) || 5, type || '', debounced || '', currentPage, '', '', status || '');
+
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [type, debounced, status, row]);
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+  };
+
+  const handleDeleteType = () => setType('');
+  const handleDeleteTitle = () => setTitle('');
+  const handleDeleteStatus = () => setStatus('');
+
+  const handleAllDelete = () => {
+    setType('');
+    setTitle('');
+    setStatus('');
+  };
+
+  const handleRow = (value: string | null) => {
+    setRow(value);
+    setCurrentPage(1);
+  };
+
+  const handleType = (value: string | null) => {
+    setType(value);
+  };
+
+  const handleSearchInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTitle(e.target.value);
+  };
+
+  const handleStatus = (value: string | null) => {
+    setStatus(value);
+  };
+
+  if (loading || !allData) return <div className="text-center">Loading...</div>;
+
+  return (
+    <div className="mx-10">
+      <HeaderPage
+        handleType={handleType}
+        handleStatus={handleStatus}
+        type={type}
+        title={title}
+        allData={allData}
+        handleSearchInput={handleSearchInput}
+        status={status}
+        handleDeleteTitle={handleDeleteTitle}
+        handleDeleteType={handleDeleteType}
+        handleDeleteStatus={handleDeleteStatus}
+        handleAllDelete={handleAllDelete}
+      />
+      <TableData
+        allData={allData}
+        loading={loading}
+        setAllData={() => { }}
+        row={row}
+        type={type}
+        title={title}
+      />
+      <PaginationData
+        handleRow={handleRow}
+        handlePageChange={handlePageChange}
+        currentPage={currentPage}
+        allData={allData}
+      />
+    </div>
+  );
+};
+
+export default AnimeList;
+
+
+
+// lib/api.ts
+import axios from 'axios';
+
+export const fetchAnime = async (
+    limit?: number | null,
+    filterData?: string | null,
+    title?: string | undefined,
+    page?: number | null,
+    order?: string | null,
+    sort?: string | null,
+    status?: string | null
+) => {
+    const params: Record<string, string | number> = {};
+
+    if (limit) params.limit = limit;
+    if (filterData) params.type = filterData;
+    if (title) params.q = title;
+    if (page) params.page = page;
+    if (order) params.order_by = order;
+    if (sort) params.sort = sort;
+    if (status) params.status = status;
+
+    const response = await axios.get('https://api.jikan.moe/v4/anime', { params });
+    return response.data;
+};
+
+
+// hooks/useAnime.ts
+import { fetchAnime } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
+
+export const useAnime = (
+    limit?: number,
+    filterData?: string,
+    title?: string,
+    page?: number,
+    order?: string,
+    sort?: string,
+    status?: string
+) => {
+    return useQuery({
+        queryKey: ['anime', limit, filterData, title, page, order, sort, status],
+        queryFn: () => fetchAnime(limit, filterData, title, page, order, sort, status),
+    });
+};
