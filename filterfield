@@ -1,0 +1,173 @@
+import { apiData } from "@/app/anime/page";
+import { IData } from "@/app/component/AnimeList";
+import FieldWithDeleteButton from "@/app/component/FieldWithDeleteButton";
+import BaseInput from "@/app/component/ui/BaseInput";
+import BaseSelect from "@/app/component/ui/BaseSelect";
+import { mediaType } from "@/app/constant/mediaType";
+import { statusType } from "@/app/constant/statusType";
+import { useDebouncedValue } from "@mantine/hooks";
+import React, { FC, useEffect, useState } from "react";
+import { FaSearch } from "react-icons/fa";
+import { MdDeleteOutline } from "react-icons/md";
+
+export type IFilter = {
+  type: string | null;
+  title: string;
+};
+
+export type IHeaderProps = {
+  alldata: IData;
+  setLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  row: string | null;
+  OnFilter: (filter: IFilter) => void;
+  setAllData: React.Dispatch<React.SetStateAction<IData>>;
+  totalItem: number;
+  currentPage: number | undefined;
+};
+
+const FilterFields: FC<IHeaderProps> = ({
+  setAllData,
+  setLoading,
+  row,
+  OnFilter,
+  totalItem,
+  currentPage,
+}) => {
+  const [type, setType] = useState<string | null>("");
+  const [title, setTitle] = useState("");
+  const [status, setStatus] = useState<string | null>("");
+
+  const [debouncedTitle] = useDebouncedValue(title, 1000);
+
+  const handleFetch = async (
+    newType: string | null = type,
+    newTitle: string = title,
+    newStatus: string | null = status
+  ) => {
+    setLoading(true);
+    setAllData((prev) => ({ ...prev, data: [] }));
+    try {
+      const res = await apiData(
+        Number(row) || 5,
+        newType,
+        newTitle,
+        currentPage,
+        "",
+        "",
+        newStatus
+      );
+      setAllData(res);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Sync filter state with parent
+  useEffect(() => {
+    OnFilter({ type, title });
+  }, [type, title]);
+
+  // Debounced title search effect
+  useEffect(() => {
+    if (debouncedTitle.trim() !== "" || debouncedTitle === "") {
+      handleFetch();
+    }
+  }, [debouncedTitle]);
+
+  const handleTypeChange = async (value: string | null) => {
+    setType(value);
+    await handleFetch(value, title, status);
+  };
+
+  const handleStatusChange = async (value: string | null) => {
+    setStatus(value);
+    await handleFetch(type, title, value);
+  };
+
+  const handleSearchInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTitle(e.target.value);
+  };
+
+  const handleDeleteType = async () => {
+    setType("");
+    await handleFetch("", title, status);
+  };
+
+  const handleDeleteTitle = async () => {
+    setTitle("");
+    await handleFetch(type, "", status);
+  };
+
+  const handleDeleteStatus = async () => {
+    setStatus("");
+    await handleFetch(type, title, "");
+  };
+
+  const handleAllDelete = async () => {
+    setType("");
+    setTitle("");
+    setStatus("");
+    await handleFetch("", "", "");
+  };
+
+  return (
+    <>
+      <div className="flex items-center py-10 gap-4">
+        <BaseSelect
+          onChange={handleTypeChange}
+          label="Type"
+          value={type}
+          data={mediaType}
+        />
+        <BaseInput
+          value={title}
+          onChange={handleSearchInput}
+          placeholder="Search Anything..."
+          leftSection={<FaSearch />}
+        />
+        <BaseSelect
+          label="Status"
+          value={status}
+          onChange={handleStatusChange}
+          data={statusType}
+        />
+      </div>
+
+      <div>
+        <span className="text-black font-bold">{totalItem}</span>
+        <span className="text-gray-700 text-base pl-2">results found</span>
+      </div>
+
+      <div className="my-6 flex flex-row text-center items-center gap-12">
+        {type && (
+          <FieldWithDeleteButton
+            title="Type"
+            value={type}
+            handleDelete={handleDeleteType}
+          />
+        )}
+        {title.trim() && (
+          <FieldWithDeleteButton
+            title="Title"
+            value={title}
+            handleDelete={handleDeleteTitle}
+          />
+        )}
+        {status && (
+          <FieldWithDeleteButton
+            title="Status"
+            value={status}
+            handleDelete={handleDeleteStatus}
+          />
+        )}
+        {(type || title.trim() || status) && (
+          <div>
+            <MdDeleteOutline size={22} onClick={handleAllDelete} color="red" />
+          </div>
+        )}
+      </div>
+    </>
+  );
+};
+
+export default FilterFields;
