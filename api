@@ -1,0 +1,42 @@
+import axios from "axios";
+import { IData } from "@/app/types/animeListType";
+
+interface GetDataParams {
+  limit?: number | null;
+  filterData?: string | null;
+  title?: string;
+  page?: number | null;
+  order?: string | null;
+  sort?: string | null;
+  status?: string | null;
+}
+
+export const getData = async ({
+  limit,
+  filterData,
+  title,
+  page,
+  order,
+  sort,
+  status,
+}: GetDataParams): Promise<IData> => {
+  const api = "https://api.jikan.moe/v4/anime";
+
+  const params: Record<string, string> = {};
+
+  if (limit != null) params.limit = limit.toString();
+  if (filterData) params.type = filterData;
+  if (title) params.q = title;
+  if (page != null) params.page = page.toString();
+  if (order) params.order_by = order;
+  if (sort) params.sort = sort;
+  if (status) params.status = status;
+
+  try {
+    const { data } = await axios.get<IData>(api, { params });
+    return data;
+  } catch (error) {
+    console.error("Failed to fetch data from Jikan API:", error);
+    throw error; // You can also return a fallback value or custom error object
+  }
+};
